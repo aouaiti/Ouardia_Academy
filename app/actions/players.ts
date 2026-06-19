@@ -16,7 +16,7 @@ export async function createPlayer(data: {
   mois_inscription?: number;
   annee_inscription?: number;
 }) {
-  await requirePermission("managePlayers");
+  await requirePermission("addPlayers");
   const supabase = await createClient();
 
   const now = new Date();

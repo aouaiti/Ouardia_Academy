@@ -1,15 +1,18 @@
 import { AuthenticatedLayout } from "@/components/layout/AuthenticatedLayout";
 import { PlayersAdminClient } from "@/components/admin/PlayersAdminClient";
 import { getSessionUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { hasAnyPermission, hasPermission } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function JoueursPage() {
   const session = await getSessionUser();
-  if (!session || !hasPermission(session.profile.role, "managePlayers")) {
+  if (!session || !hasAnyPermission(session.profile.role, ["managePlayers", "addPlayers"])) {
     redirect("/dashboard");
   }
+
+  const canManage = hasPermission(session.profile.role, "managePlayers");
+  const canAdd = hasPermission(session.profile.role, "addPlayers");
 
   const supabase = await createClient();
   const [{ data: players }, { data: trainers }, { data: categories }] = await Promise.all([
@@ -26,6 +29,8 @@ export default async function JoueursPage() {
         players={(players ?? []) as never}
         trainers={trainers ?? []}
         categories={uniqueCategories}
+        canManage={canManage}
+        canAdd={canAdd}
       />
     </AuthenticatedLayout>
   );

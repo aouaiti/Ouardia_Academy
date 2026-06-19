@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createPayment, deletePayment, updatePlayerRate } from "@/app/actions/payments";
 import { generateReceiptPDF, exportPaymentHistoryPDF } from "@/lib/pdf";
@@ -23,6 +23,7 @@ interface Props {
 export function PaymentClient({ players, existingPayments, historyFilters, role }: Props) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
+  const [categorie, setCategorie] = useState<number | "">("");
   const [mois, setMois] = useState(new Date().getMonth() + 1);
   const [annee, setAnnee] = useState(new Date().getFullYear());
   const [search, setSearch] = useState("");
@@ -43,10 +44,22 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
   const canEditRate = hasPermission(role, "modifyPlayerRate");
   const canExport = hasPermission(role, "exportReports");
 
-  const filteredPlayers = players.filter((p) => {
-    const q = search.toLowerCase();
-    return `${p.prenom} ${p.nom}`.toLowerCase().includes(q);
-  });
+  const categories = useMemo(
+    () => [...new Set(players.map((p) => p.annee_naissance))].sort((a, b) => b - a),
+    [players]
+  );
+
+  const filteredPlayers = useMemo(() => players.filter((p) => {
+    if (categorie && p.annee_naissance !== categorie) return false;
+    const q = search.toLowerCase().trim();
+    if (q && !`${p.prenom} ${p.nom}`.toLowerCase().includes(q)) return false;
+    return true;
+  }), [players, categorie, search]);
+
+  const histPlayers = useMemo(() => {
+    if (!histFilters.categorie) return players;
+    return players.filter((p) => p.annee_naissance === histFilters.categorie);
+  }, [players, histFilters.categorie]);
 
   const selectedPlayer = players.find((p) => p.id === playerId);
   const alreadyPaid = existingPayments.some(
@@ -59,6 +72,7 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
     setHistFilters(newFilters);
     const params = new URLSearchParams();
     if (newFilters.joueurId) params.set("joueur", newFilters.joueurId);
+    if (newFilters.categorie) params.set("categorie", String(newFilters.categorie));
     if (newFilters.mois) params.set("mois", String(newFilters.mois));
     if (newFilters.annee) params.set("annee", String(newFilters.annee));
     if (newFilters.datePaiement) params.set("datePaiement", newFilters.datePaiement);
@@ -114,25 +128,50 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
         <Card className="mb-6">
           <h2 className="mb-4 text-lg font-semibold">Nouveau paiement</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Rechercher un joueur</label>
-              <input
-                type="text"
-                placeholder="Nom ou prénom…"
-                className="mb-2 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <select
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={playerId}
-                onChange={(e) => setPlayerId(e.target.value)}
-              >
-                <option value="">Sélectionner un joueur</option>
-                {filteredPlayers.map((p) => (
-                  <option key={p.id} value={p.id}>{p.prenom} {p.nom} ({p.annee_naissance})</option>
-                ))}
-              </select>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Catégorie</label>
+                <select
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={categorie}
+                  onChange={(e) => {
+                    const value = e.target.value ? Number(e.target.value) : "";
+                    setCategorie(value);
+                    if (value && playerId) {
+                      const p = players.find((pl) => pl.id === playerId);
+                      if (p && p.annee_naissance !== value) setPlayerId("");
+                    }
+                  }}
+                >
+                  <option value="">Toutes les catégories</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Rechercher un joueur</label>
+                <input
+                  type="text"
+                  placeholder="Nom ou prénom…"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Joueur</label>
+                <select
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={playerId}
+                  onChange={(e) => setPlayerId(e.target.value)}
+                >
+                  <option value="">Sélectionner un joueur</option>
+                  {filteredPlayers.map((p) => (
+                    <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -209,8 +248,32 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
         </div>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Catégorie</label>
+            <select
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              value={histFilters.categorie ?? ""}
+              onChange={(e) => {
+                const cat = e.target.value ? Number(e.target.value) : undefined;
+                const next: PaymentHistoryFilters = { ...histFilters, categorie: cat };
+                if (cat && next.joueurId) {
+                  const p = players.find((pl) => pl.id === next.joueurId);
+                  if (p && p.annee_naissance !== cat) {
+                    next.joueurId = undefined;
+                    setHistPlayerSearch("");
+                  }
+                }
+                applyHistoryFilters(next);
+              }}
+            >
+              <option value="">Toutes</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
           <PlayerAutocomplete
-            players={players}
+            players={histPlayers}
             value={histFilters.joueurId ?? ""}
             onChange={(id) => applyHistoryFilters({ ...histFilters, joueurId: id || undefined })}
             search={histPlayerSearch}

@@ -99,6 +99,7 @@ export interface PlayerRow extends Player {
 
 export interface PaymentHistoryFilters {
   joueurId?: string;
+  categorie?: number;
   mois?: number;
   annee?: number;
   datePaiement?: string;

@@ -3,8 +3,8 @@
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardFilters, PlayerRow } from "@/lib/types";
-import { formatDateTime, formatMontant, moisLabel, moisOptions, anneeOptions } from "@/lib/format";
-import { exportDashboardPDF, exportDashboardCSV, exportDebtPDF, exportYearlyPDF } from "@/lib/pdf";
+import { formatDateTime, formatMontant, moisLabel, moisOptions, anneeOptions, formatDate } from "@/lib/format";
+import { exportDashboardPDF, exportDashboardCSV, exportDebtPDF, exportYearlyPDF, exportDailyReportPDF } from "@/lib/pdf";
 import { saveFilterShortcut } from "@/app/actions/shortcuts";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +36,17 @@ interface Props {
   };
   shortcuts: { id: string; nom: string; filtres: DashboardFilters }[];
   defaultFilters: DashboardFilters;
+  todayPayments: {
+    montant: number;
+    date_paiement: string;
+    numero_recu: string;
+    mois: number;
+    annee: number;
+    players?: { nom: string; prenom: string } | null;
+  }[];
+  todayTotal: number;
+  todayDate: string;
+  appName: string;
 }
 
 const QUICK_FILTERS: { label: string; filtres: Partial<DashboardFilters> }[] = [
@@ -51,6 +62,10 @@ export function DashboardClient({
   filterOptions,
   shortcuts,
   defaultFilters,
+  todayPayments,
+  todayTotal,
+  todayDate,
+  appName,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -101,6 +116,13 @@ export function DashboardClient({
             <Button variant="outline" size="sm" onClick={() => exportYearlyPDF(filters.annee, calcStart, yearStats, rows)}>
               <FileDown className="h-4 w-4" /> PDF Annuel
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportDailyReportPDF(todayPayments, todayTotal, formatDate(todayDate), appName)}
+            >
+              <FileDown className="h-4 w-4" /> Rapport du jour
+            </Button>
             <Button variant="outline" size="sm" onClick={() => exportDashboardCSV(rows, filters)}>
               <FileSpreadsheet className="h-4 w-4" /> CSV
             </Button>
@@ -132,6 +154,42 @@ export function DashboardClient({
           accent="red"
         />
       </div>
+
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h3 className="text-sm font-semibold">Encaissements du jour</h3>
+            <p className="text-xs text-muted">{formatDate(todayDate)} — {todayPayments.length} paiement{todayPayments.length !== 1 ? "s" : ""}</p>
+          </div>
+          <p className="text-lg font-bold text-success">{formatMontant(todayTotal)}</p>
+        </div>
+        {todayPayments.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-muted">Aucun paiement enregistré aujourd&apos;hui.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-background/50">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-muted">Joueur</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Période</th>
+                <th className="px-4 py-2 text-right font-medium text-muted">Montant</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Date et heure</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todayPayments.map((p) => (
+                <tr key={p.numero_recu} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2">
+                    {p.players ? `${p.players.prenom} ${p.players.nom}` : "—"}
+                  </td>
+                  <td className="px-4 py-2">{moisLabel(p.mois)} {p.annee}</td>
+                  <td className="px-4 py-2 text-right font-medium">{formatMontant(Number(p.montant))}</td>
+                  <td className="px-4 py-2">{formatDateTime(p.date_paiement)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
 
       <div className="mb-6 rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-semibold">Évolution mensuelle {filters.annee}</h3>

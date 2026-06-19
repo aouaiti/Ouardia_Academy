@@ -6,7 +6,9 @@ import {
   fetchFilterOptions,
   fetchUserShortcuts,
   fetchYearStats,
+  fetchAppSettings,
 } from "@/lib/data/dashboard";
+import { fetchTodayPayments } from "@/lib/data/payments";
 import type { DashboardFilters } from "@/lib/types";
 
 interface PageProps {
@@ -32,11 +34,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const calcStart = { mois: filters.calcMois ?? 1, annee: filters.calcAnnee ?? filters.annee };
 
   const session = await getSessionUser();
-  const [{ rows, stats }, yearStats, filterOptions, shortcuts] = await Promise.all([
+  const [{ rows, stats }, yearStats, filterOptions, shortcuts, todayReport, settings] = await Promise.all([
     fetchDashboardData(filters),
     fetchYearStats(filters.annee, calcStart),
     fetchFilterOptions(),
     session ? fetchUserShortcuts(session.profile.id) : Promise.resolve([]),
+    fetchTodayPayments(),
+    fetchAppSettings(),
   ]);
 
   return (
@@ -49,6 +53,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         filterOptions={filterOptions}
         shortcuts={shortcuts as { id: string; nom: string; filtres: DashboardFilters }[]}
         defaultFilters={filters}
+        todayPayments={todayReport.payments}
+        todayTotal={todayReport.total}
+        todayDate={todayReport.date}
+        appName={settings.app_name}
       />
     </AuthenticatedLayout>
   );

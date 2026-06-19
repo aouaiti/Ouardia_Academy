@@ -8,7 +8,9 @@ export const PERMISSIONS = {
   deletePayment: ["admin"] as UserRole[],
   modifyPlayerRate: ["admin"] as UserRole[],
   managePlayers: ["admin"] as UserRole[],
+  addPlayers: ["admin", "editor"] as UserRole[],
   manageTrainers: ["admin"] as UserRole[],
+  addTrainers: ["admin", "editor"] as UserRole[],
   bulkReassignTrainer: ["admin"] as UserRole[],
   manageUsers: ["admin"] as UserRole[],
   viewAuditLog: ["admin"] as UserRole[],
@@ -19,6 +21,13 @@ export const PERMISSIONS = {
 export function hasPermission(role: UserRole | null | undefined, permission: keyof typeof PERMISSIONS): boolean {
   if (!role) return false;
   return PERMISSIONS[permission].includes(role);
+}
+
+export function hasAnyPermission(
+  role: UserRole | null | undefined,
+  permissions: (keyof typeof PERMISSIONS)[]
+): boolean {
+  return permissions.some((p) => hasPermission(role, p));
 }
 
 export function roleLabel(role: UserRole): string {

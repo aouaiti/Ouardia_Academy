@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "@/app/actions/users";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, hasAnyPermission } from "@/lib/permissions";
 import { roleLabel } from "@/lib/permissions";
 import type { AppUser, AppSettings } from "@/lib/types";
+import type { PERMISSIONS } from "@/lib/permissions";
 import {
   LayoutDashboard,
   CreditCard,
@@ -16,14 +17,23 @@ import {
   Palette,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, permission: "viewDashboard" as const },
-  { href: "/paiement", label: "Paiement", icon: CreditCard, permission: "recordPayment" as const, optional: true },
-  { href: "/utilisateurs", label: "Utilisateurs", icon: Users, permission: "manageUsers" as const },
-  { href: "/admin/joueurs", label: "Joueurs", icon: UserCog, permission: "managePlayers" as const },
-  { href: "/admin/entraineurs", label: "Entraîneurs", icon: Shield, permission: "manageTrainers" as const },
-  { href: "/admin/journal", label: "Journal d'audit", icon: ClipboardList, permission: "viewAuditLog" as const },
-  { href: "/admin/parametres", label: "Paramètres", icon: Palette, permission: "manageSettings" as const },
+type Permission = keyof typeof PERMISSIONS;
+
+const navItems: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permission?: Permission;
+  anyPermission?: Permission[];
+  optional?: boolean;
+}[] = [
+  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, permission: "viewDashboard" },
+  { href: "/paiement", label: "Paiement", icon: CreditCard, permission: "recordPayment", optional: true },
+  { href: "/utilisateurs", label: "Utilisateurs", icon: Users, permission: "manageUsers" },
+  { href: "/admin/joueurs", label: "Joueurs", icon: UserCog, anyPermission: ["managePlayers", "addPlayers"] },
+  { href: "/admin/entraineurs", label: "Entraîneurs", icon: Shield, anyPermission: ["manageTrainers", "addTrainers"] },
+  { href: "/admin/journal", label: "Journal d'audit", icon: ClipboardList, permission: "viewAuditLog" },
+  { href: "/admin/parametres", label: "Paramètres", icon: Palette, permission: "manageSettings" },
 ];
 
 export function AppShell({
@@ -36,8 +46,13 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const visibleNav = navItems.filter((item) => {
-    if (item.optional && !hasPermission(user.role, item.permission)) return false;
-    if (!item.optional && item.permission !== "viewDashboard" && !hasPermission(user.role, item.permission)) return false;
+    if (item.anyPermission) {
+      return hasAnyPermission(user.role, item.anyPermission);
+    }
+    if (item.optional && item.permission && !hasPermission(user.role, item.permission)) return false;
+    if (!item.optional && item.permission && item.permission !== "viewDashboard" && !hasPermission(user.role, item.permission)) {
+      return false;
+    }
     return true;
   });
 

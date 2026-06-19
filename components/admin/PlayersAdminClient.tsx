@@ -13,9 +13,11 @@ interface Props {
   players: (Player & { trainers: Trainer | null })[];
   trainers: Trainer[];
   categories: number[];
+  canManage: boolean;
+  canAdd: boolean;
 }
 
-export function PlayersAdminClient({ players, trainers, categories }: Props) {
+export function PlayersAdminClient({ players, trainers, categories, canManage, canAdd }: Props) {
   const now = new Date();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
@@ -97,14 +99,17 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
     <>
       <PageHeader
         title="Gestion des joueurs"
-        description="Ajouter, modifier et réaffecter les joueurs"
+        description={canManage ? "Ajouter, modifier et réaffecter les joueurs" : "Ajouter un nouveau joueur"}
         actions={
-          <Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>
-            <UserPlus className="h-4 w-4" /> Ajouter
-          </Button>
+          canAdd ? (
+            <Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>
+              <UserPlus className="h-4 w-4" /> Ajouter
+            </Button>
+          ) : undefined
         }
       />
 
+      {canManage && (
       <Card className="mb-6">
         <h2 className="mb-3 font-semibold">Réaffectation en masse</h2>
         <div className="flex flex-wrap gap-3">
@@ -123,8 +128,9 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
           </Button>
         </div>
       </Card>
+      )}
 
-      {showForm && (
+      {canAdd && showForm && (
         <Card className="mb-6">
           <h2 className="mb-4 font-semibold">Nouveau joueur</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -154,7 +160,7 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
         </Card>
       )}
 
-      {editPlayer && (
+      {canManage && editPlayer && (
         <Card className="mb-6 border-primary/30">
           <h2 className="mb-4 font-semibold">Modifier le joueur</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -197,7 +203,7 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
                 <th className="px-3 py-2 text-left font-medium text-muted">Tarif</th>
                 <th className="px-3 py-2 text-left font-medium text-muted">Inscription</th>
                 <th className="px-3 py-2 text-left font-medium text-muted">Statut</th>
-                <th className="px-3 py-2 text-right font-medium text-muted">Actions</th>
+                {canManage && <th className="px-3 py-2 text-right font-medium text-muted">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -213,6 +219,7 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
                       {p.statut === "actif" ? "Actif" : "Inactif"}
                     </span>
                   </td>
+                  {canManage && (
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
@@ -223,6 +230,7 @@ export function PlayersAdminClient({ players, trainers, categories }: Props) {
                       </Button>
                     </div>
                   </td>
+                  )}
                 </tr>
               ))}
             </tbody>

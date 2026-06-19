@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function createTrainer(data: { nom: string; prenom: string; telephone?: string }) {
-  await requirePermission("manageTrainers");
+  await requirePermission("addTrainers");
   const supabase = await createClient();
 
   const { data: trainer, error } = await supabase

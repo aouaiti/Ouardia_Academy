@@ -24,6 +24,7 @@ export default async function PaiementPage({ searchParams }: PageProps) {
 
   const historyFilters: PaymentHistoryFilters = {
     joueurId: params.joueur,
+    categorie: params.categorie ? Number(params.categorie) : undefined,
     mois: params.mois ? Number(params.mois) : undefined,
     annee: params.annee ? Number(params.annee) : undefined,
     datePaiement: params.datePaiement,

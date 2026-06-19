@@ -8,7 +8,15 @@ import { Card } from "@/components/ui/Card";
 import type { Trainer } from "@/lib/types";
 import { UserPlus, Loader2, Pencil } from "lucide-react";
 
-export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
+export function TrainersAdminClient({
+  trainers,
+  canManage,
+  canAdd,
+}: {
+  trainers: Trainer[];
+  canManage: boolean;
+  canAdd: boolean;
+}) {
   const [showForm, setShowForm] = useState(false);
   const [editTrainer, setEditTrainer] = useState<Trainer | null>(null);
   const [error, setError] = useState("");
@@ -54,15 +62,17 @@ export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
     <>
       <PageHeader
         title="Gestion des entraîneurs"
-        description="Ajouter et modifier les entraîneurs"
+        description={canManage ? "Ajouter et modifier les entraîneurs" : "Ajouter un nouvel entraîneur"}
         actions={
-          <Button variant="primary" size="sm" onClick={() => { setShowForm(!showForm); setEditTrainer(null); }}>
-            <UserPlus className="h-4 w-4" /> Ajouter
-          </Button>
+          canAdd ? (
+            <Button variant="primary" size="sm" onClick={() => { setShowForm(!showForm); setEditTrainer(null); }}>
+              <UserPlus className="h-4 w-4" /> Ajouter
+            </Button>
+          ) : undefined
         }
       />
 
-      {showForm && (
+      {canAdd && showForm && (
         <Card className="mb-6">
           <h2 className="mb-4 font-semibold">Nouvel entraîneur</h2>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -77,7 +87,7 @@ export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
         </Card>
       )}
 
-      {editTrainer && (
+      {canManage && editTrainer && (
         <Card className="mb-6 border-primary/30">
           <h2 className="mb-4 font-semibold">Modifier l&apos;entraîneur</h2>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -102,7 +112,7 @@ export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
               <th className="px-3 py-2 text-left font-medium text-muted">Nom</th>
               <th className="px-3 py-2 text-left font-medium text-muted">Téléphone</th>
               <th className="px-3 py-2 text-left font-medium text-muted">Statut</th>
-              <th className="px-3 py-2 text-right font-medium text-muted">Actions</th>
+              {canManage && <th className="px-3 py-2 text-right font-medium text-muted">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -115,6 +125,7 @@ export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
                     {t.actif ? "Actif" : "Inactif"}
                   </span>
                 </td>
+                {canManage && (
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" onClick={() => { setEditTrainer(t); setShowForm(false); }}>
@@ -125,6 +136,7 @@ export function TrainersAdminClient({ trainers }: { trainers: Trainer[] }) {
                     </Button>
                   </div>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>
