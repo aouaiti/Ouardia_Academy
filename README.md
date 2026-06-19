@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Encaissement — Académie de Football
 
-## Getting Started
+Application web de gestion des paiements mensuels des joueurs, conforme au cahier des charges.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 16** (App Router)
+- **Supabase** (Auth, Postgres, RLS)
+- **Tailwind CSS 4**
+- Interface 100 % en français
+
+## Démarrage
+
+### 1. Variables d'environnement
+
+Le fichier `.env.local` contient déjà les clés Supabase du PRD.
+
+### 2. Base de données
+
+Exécutez les scripts SQL dans Supabase (éditeur SQL), dans l'ordre :
+
+```
+supabase/migrations/001_initial_schema.sql
+supabase/migrations/002_enhancements.sql
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Le script `002` ajoute : mois/année d'inscription, paramètres de personnalisation, purge du journal d'audit, bucket logo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Premier administrateur
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Créez un utilisateur dans **Supabase Auth** (email + mot de passe)
+2. Insérez son profil :
 
-## Learn More
+```sql
+INSERT INTO public.app_users (id, nom, prenom, role)
+VALUES ('<uuid-de-auth-users>', 'Admin', 'Principal', 'admin');
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Lancer l'application
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Ouvrez [http://localhost:3000](http://localhost:3000)
 
-## Deploy on Vercel
+## Pages
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Route | Accès | Description |
+|---|---|---|
+| `/login` | Public | Connexion |
+| `/forgot-password` | Public | Réinitialisation mot de passe |
+| `/dashboard` | Tous | Tableau de bord, filtres, exports PDF/CSV |
+| `/paiement` | Éditeur, Admin | Enregistrement paiements et reçus |
+| `/utilisateurs` | Admin | Gestion des comptes |
+| `/admin/joueurs` | Admin | Gestion joueurs + réaffectation masse |
+| `/admin/entraineurs` | Admin | Gestion entraîneurs |
+| `/admin/journal` | Admin | Journal d'audit + purge (3/6/9/12 mois) |
+| `/admin/parametres` | Admin | Logo, nom, description, couleurs |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Variables optionnelles
+
+Ajoutez dans `.env.local` pour réinitialiser les mots de passe des autres utilisateurs :
+
+```
+SUPABASE_SERVICE_ROLE_KEY=votre_cle_service_role
+```
+
+## Rôles
+
+- **Utilisateur** : consultation + exports
+- **Éditeur** : + enregistrement paiements et reçus
+- **Admin** : accès complet (suppression, gestion, audit)
+
+Les permissions sont appliquées côté UI, serveur (Server Actions) et base (RLS Supabase).
