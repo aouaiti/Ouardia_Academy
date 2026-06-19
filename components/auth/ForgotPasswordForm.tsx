@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import Image from "next/image";
-import { Trophy, Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import type { AppSettings } from "@/lib/types";
 
 export function ForgotPasswordForm({ settings }: { settings: AppSettings }) {
@@ -39,16 +39,7 @@ export function ForgotPasswordForm({ settings }: { settings: AppSettings }) {
     >
       <div className="w-full max-w-md rounded-2xl bg-surface p-8 shadow-xl">
         <div className="mb-8 text-center">
-          <div
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl"
-            style={{ backgroundColor: `${settings.primary_color}1a` }}
-          >
-            {settings.logo_url ? (
-              <Image src={settings.logo_url} alt="Logo" width={56} height={56} className="object-contain" unoptimized />
-            ) : (
-              <Trophy className="h-7 w-7" style={{ color: settings.primary_color }} />
-            )}
-          </div>
+          <BrandLogo settings={settings} size="lg" className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Mot de passe oublié</h1>
           <p className="mt-1 text-sm text-muted">{settings.app_description}</p>
         </div>

@@ -19,6 +19,9 @@ export async function updateAppSettings(data: Partial<Omit<AppSettings, "id" | "
 
   await logAudit("modif_parametres", "app_settings", null, { changements: data });
   revalidatePath("/", "layout");
+  revalidatePath("/login");
+  revalidatePath("/forgot-password");
+  revalidatePath("/admin/parametres");
   return { success: true };
 }
 
@@ -33,10 +36,15 @@ export async function uploadLogo(formData: FormData) {
 
   const { error: uploadError } = await supabase.storage
     .from("branding")
-    .upload(path, file, { upsert: true });
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type || `image/${ext}`,
+    });
 
   if (uploadError) return { error: uploadError.message };
 
   const { data: { publicUrl } } = supabase.storage.from("branding").getPublicUrl(path);
-  return updateAppSettings({ logo_url: publicUrl });
+  const updateResult = await updateAppSettings({ logo_url: publicUrl });
+  if (updateResult.error) return updateResult;
+  return { success: true, logo_url: publicUrl };
 }

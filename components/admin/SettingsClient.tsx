@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateAppSettings, uploadLogo } from "@/app/actions/settings";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import type { AppSettings } from "@/lib/types";
 import { Loader2, Save } from "lucide-react";
-import Image from "next/image";
 
 export function SettingsClient({ settings }: { settings: AppSettings }) {
+  const router = useRouter();
   const [form, setForm] = useState(settings);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
@@ -26,7 +28,10 @@ export function SettingsClient({ settings }: { settings: AppSettings }) {
         logo_url: form.logo_url,
       });
       if (result.error) setMessage(result.error);
-      else setMessage("Paramètres enregistrés");
+      else {
+        setMessage("Paramètres enregistrés");
+        router.refresh();
+      }
     });
   }
 
@@ -35,11 +40,23 @@ export function SettingsClient({ settings }: { settings: AppSettings }) {
     if (!file) return;
     const fd = new FormData();
     fd.append("logo", file);
+    setMessage("");
     startTransition(async () => {
       const result = await uploadLogo(fd);
-      if (result.error) setMessage(result.error);
-      else setMessage("Logo mis à jour");
+      if ("error" in result && result.error) setMessage(result.error);
+      else {
+        if ("logo_url" in result && result.logo_url) {
+          setForm((prev) => ({
+            ...prev,
+            logo_url: result.logo_url!,
+            updated_at: new Date().toISOString(),
+          }));
+        }
+        setMessage("Logo mis à jour");
+        router.refresh();
+      }
     });
+    e.target.value = "";
   }
 
   return (
@@ -61,13 +78,12 @@ export function SettingsClient({ settings }: { settings: AppSettings }) {
 
         <div className="mt-4">
           <label className="mb-2 block text-sm font-medium">Logo</label>
-          <div className="flex items-center gap-4">
-            {form.logo_url ? (
-              <Image src={form.logo_url} alt="Logo" width={48} height={48} className="rounded-lg object-contain" unoptimized />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-xs text-muted">Aucun</div>
-            )}
-            <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-sm" />
+          <div className="flex flex-wrap items-center gap-4">
+            <BrandLogo settings={form} size="lg" className="rounded-lg border border-dashed border-border bg-transparent px-4" />
+            <div>
+              <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-sm" disabled={pending} />
+              <p className="mt-1 text-xs text-muted">PNG transparent recommandé. Le logo s&apos;affiche en grand sur l&apos;écran de connexion.</p>
+            </div>
           </div>
         </div>
       </Card>

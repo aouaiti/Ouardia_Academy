@@ -130,6 +130,27 @@ export function DashboardClient({
         }
       />
 
+      <Card className="mb-6 border-primary/20 bg-primary/5">
+        <p className="mb-2 text-sm font-semibold text-primary">Calcul des dues depuis</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Mois</label>
+            <select className="rounded-lg border border-border bg-background px-3 py-2 text-sm" value={filters.calcMois ?? 1} onChange={(e) => applyFilters({ ...filters, calcMois: Number(e.target.value) })}>
+              {moisOptions().map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Année</label>
+            <select className="rounded-lg border border-border bg-background px-3 py-2 text-sm" value={filters.calcAnnee ?? filters.annee} onChange={(e) => applyFilters({ ...filters, calcAnnee: Number(e.target.value) })}>
+              {anneeOptions(10).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Ce réglage affecte les totaux payés, dus et dettes affichés sur tout le tableau de bord. Un joueur inscrit en juin ne sera pas facturé pour janvier–mai.
+        </p>
+      </Card>
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Encaissé ce mois"
@@ -295,21 +316,6 @@ export function DashboardClient({
               <Save className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
-          <p className="mb-2 text-xs font-semibold text-primary">Calcul des dues depuis :</p>
-          <div className="flex flex-wrap gap-3">
-            <select className="rounded-lg border border-border bg-background px-3 py-2 text-sm" value={filters.calcMois ?? 1} onChange={(e) => applyFilters({ ...filters, calcMois: Number(e.target.value) })}>
-              {moisOptions().map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-            <select className="rounded-lg border border-border bg-background px-3 py-2 text-sm" value={filters.calcAnnee ?? filters.annee} onChange={(e) => applyFilters({ ...filters, calcAnnee: Number(e.target.value) })}>
-              {anneeOptions(10).map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-          <p className="mt-2 text-xs text-muted">
-            Les totaux dus tiennent compte de la date d&apos;inscription de chaque joueur. Un joueur inscrit en juin ne sera pas facturé pour janvier–mai.
-          </p>
         </div>
       </div>
 

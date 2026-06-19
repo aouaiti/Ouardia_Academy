@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { signOut } from "@/app/actions/users";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { hasPermission, hasAnyPermission } from "@/lib/permissions";
 import { roleLabel } from "@/lib/permissions";
 import type { AppUser, AppSettings } from "@/lib/types";
@@ -13,7 +13,6 @@ import {
   UserCog,
   ClipboardList,
   LogOut,
-  Trophy,
   Palette,
 } from "lucide-react";
 
@@ -63,16 +62,7 @@ export function AppShell({
         style={{ backgroundColor: settings.primary_dark }}
       >
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl"
-            style={{ backgroundColor: `${settings.primary_light}33` }}
-          >
-            {settings.logo_url ? (
-              <Image src={settings.logo_url} alt="Logo" width={40} height={40} className="object-contain" unoptimized />
-            ) : (
-              <Trophy className="h-5 w-5" style={{ color: settings.primary_light }} />
-            )}
-          </div>
+          <BrandLogo settings={settings} size="sm" />
           <div>
             <p className="text-sm font-semibold leading-tight">{settings.app_name}</p>
             <p className="text-xs text-white/60">{settings.app_description}</p>
