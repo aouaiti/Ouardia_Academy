@@ -15,12 +15,13 @@ import { CreditCard, Trash2, Loader2, FileDown, Search } from "lucide-react";
 
 interface Props {
   players: Player[];
+  trainers: { id: string; nom: string; prenom: string }[];
   existingPayments: (Payment & { players: Player })[];
   historyFilters: PaymentHistoryFilters;
   role: UserRole;
 }
 
-export function PaymentClient({ players, existingPayments, historyFilters, role }: Props) {
+export function PaymentClient({ players, trainers, existingPayments, historyFilters, role }: Props) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
   const [categorie, setCategorie] = useState<number | "">("");
@@ -57,9 +58,11 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
   }), [players, categorie, search]);
 
   const histPlayers = useMemo(() => {
-    if (!histFilters.categorie) return players;
-    return players.filter((p) => p.annee_naissance === histFilters.categorie);
-  }, [players, histFilters.categorie]);
+    let list = players;
+    if (histFilters.categorie) list = list.filter((p) => p.annee_naissance === histFilters.categorie);
+    if (histFilters.entraineurId) list = list.filter((p) => p.entraineur_id === histFilters.entraineurId);
+    return list;
+  }, [players, histFilters.categorie, histFilters.entraineurId]);
 
   const selectedPlayer = players.find((p) => p.id === playerId);
   const alreadyPaid = existingPayments.some(
@@ -73,6 +76,7 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
     const params = new URLSearchParams();
     if (newFilters.joueurId) params.set("joueur", newFilters.joueurId);
     if (newFilters.categorie) params.set("categorie", String(newFilters.categorie));
+    if (newFilters.entraineurId) params.set("entraineur", newFilters.entraineurId);
     if (newFilters.mois) params.set("mois", String(newFilters.mois));
     if (newFilters.annee) params.set("annee", String(newFilters.annee));
     if (newFilters.datePaiement) params.set("datePaiement", newFilters.datePaiement);
@@ -236,11 +240,17 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportPaymentHistoryPDF(
-                existingPayments,
-                historyFilters,
-                histPlayer ? `${histPlayer.prenom} ${histPlayer.nom}` : undefined
-              )}
+              onClick={() => {
+                const trainer = histFilters.entraineurId
+                  ? trainers.find((t) => t.id === histFilters.entraineurId)
+                  : undefined;
+                exportPaymentHistoryPDF(
+                  existingPayments,
+                  historyFilters,
+                  histPlayer ? `${histPlayer.prenom} ${histPlayer.nom}` : undefined,
+                  trainer ? `${trainer.prenom} ${trainer.nom}` : undefined
+                );
+              }}
             >
               <FileDown className="h-4 w-4" /> PDF
             </Button>
@@ -280,6 +290,30 @@ export function PaymentClient({ players, existingPayments, historyFilters, role 
             onSearchChange={setHistPlayerSearch}
             label="Joueur"
           />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Entraîneur</label>
+            <select
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              value={histFilters.entraineurId ?? ""}
+              onChange={(e) => {
+                const entraineurId = e.target.value || undefined;
+                const next: PaymentHistoryFilters = { ...histFilters, entraineurId };
+                if (entraineurId && next.joueurId) {
+                  const p = players.find((pl) => pl.id === next.joueurId);
+                  if (p && p.entraineur_id !== entraineurId) {
+                    next.joueurId = undefined;
+                    setHistPlayerSearch("");
+                  }
+                }
+                applyHistoryFilters(next);
+              }}
+            >
+              <option value="">Tous</option>
+              {trainers.map((t) => (
+                <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Mois</label>
             <select className="w-full rounded-lg border border-border px-3 py-2 text-sm" value={histFilters.mois ?? ""} onChange={(e) => applyHistoryFilters({ ...histFilters, mois: e.target.value ? Number(e.target.value) : undefined })}>

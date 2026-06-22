@@ -22,6 +22,7 @@ interface PlayerSummary {
 
 interface Props {
   players: Player[];
+  trainers: { id: string; nom: string; prenom: string }[];
   existingPayments: (TenuPayment & { players: Player })[];
   historyFilters: TenuPaymentHistoryFilters;
   playerSummaries: Record<string, PlayerSummary>;
@@ -31,6 +32,7 @@ interface Props {
 
 export function TenuPaymentTab({
   players,
+  trainers,
   existingPayments,
   historyFilters,
   playerSummaries,
@@ -72,9 +74,11 @@ export function TenuPaymentTab({
   }), [players, categorie, search]);
 
   const histPlayers = useMemo(() => {
-    if (!histFilters.categorie) return players;
-    return players.filter((p) => p.annee_naissance === histFilters.categorie);
-  }, [players, histFilters.categorie]);
+    let list = players;
+    if (histFilters.categorie) list = list.filter((p) => p.annee_naissance === histFilters.categorie);
+    if (histFilters.entraineurId) list = list.filter((p) => p.entraineur_id === histFilters.entraineurId);
+    return list;
+  }, [players, histFilters.categorie, histFilters.entraineurId]);
 
   const selectedPlayer = players.find((p) => p.id === playerId);
   const summary = playerId ? playerSummaries[playerId] : undefined;
@@ -90,6 +94,8 @@ export function TenuPaymentTab({
     else params.delete("joueur");
     if (newFilters.categorie) params.set("categorie", String(newFilters.categorie));
     else params.delete("categorie");
+    if (newFilters.entraineurId) params.set("entraineur", newFilters.entraineurId);
+    else params.delete("entraineur");
     if (newFilters.datePaiement) params.set("datePaiement", newFilters.datePaiement);
     else params.delete("datePaiement");
     if (newFilters.numeroRecu) params.set("numeroRecu", newFilters.numeroRecu);
@@ -274,11 +280,17 @@ export function TenuPaymentTab({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportTenuPaymentHistoryPDF(
-                existingPayments,
-                historyFilters,
-                histPlayer ? `${histPlayer.prenom} ${histPlayer.nom}` : undefined
-              )}
+              onClick={() => {
+                const trainer = histFilters.entraineurId
+                  ? trainers.find((t) => t.id === histFilters.entraineurId)
+                  : undefined;
+                exportTenuPaymentHistoryPDF(
+                  existingPayments,
+                  historyFilters,
+                  histPlayer ? `${histPlayer.prenom} ${histPlayer.nom}` : undefined,
+                  trainer ? `${trainer.prenom} ${trainer.nom}` : undefined
+                );
+              }}
             >
               <FileDown className="h-4 w-4" /> PDF
             </Button>
@@ -318,6 +330,30 @@ export function TenuPaymentTab({
             onSearchChange={setHistPlayerSearch}
             label="Joueur"
           />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Entraîneur</label>
+            <select
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              value={histFilters.entraineurId ?? ""}
+              onChange={(e) => {
+                const entraineurId = e.target.value || undefined;
+                const next: TenuPaymentHistoryFilters = { ...histFilters, entraineurId };
+                if (entraineurId && next.joueurId) {
+                  const p = players.find((pl) => pl.id === next.joueurId);
+                  if (p && p.entraineur_id !== entraineurId) {
+                    next.joueurId = undefined;
+                    setHistPlayerSearch("");
+                  }
+                }
+                applyHistoryFilters(next);
+              }}
+            >
+              <option value="">Tous</option>
+              {trainers.map((t) => (
+                <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Date de paiement</label>
             <input

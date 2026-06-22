@@ -106,6 +106,7 @@ export function TenuClient({
       {activeTab === "paiements" ? (
         <TenuPaymentTab
           players={players}
+          trainers={filterOptions.trainers}
           existingPayments={existingPayments}
           historyFilters={historyFilters}
           playerSummaries={playerSummaries}
@@ -121,6 +122,8 @@ export function TenuClient({
           todayPayments={todayPayments}
           todayTotal={todayTotal}
           todayDate={todayDate}
+          appName={appName}
+          role={role}
         />
       )}
     </>

@@ -40,12 +40,12 @@ export async function fetchPaymentHistory(filters: PaymentHistoryFilters) {
     .limit(500);
 
   if (filters.joueurId) query = query.eq("player_id", filters.joueurId);
-  if (filters.categorie) {
-    const { data: categoryPlayers } = await supabase
-      .from("players")
-      .select("id")
-      .eq("annee_naissance", filters.categorie);
-    const ids = (categoryPlayers ?? []).map((p) => p.id);
+  if (filters.categorie || filters.entraineurId) {
+    let playerQuery = supabase.from("players").select("id");
+    if (filters.categorie) playerQuery = playerQuery.eq("annee_naissance", filters.categorie);
+    if (filters.entraineurId) playerQuery = playerQuery.eq("entraineur_id", filters.entraineurId);
+    const { data: filteredPlayers } = await playerQuery;
+    const ids = (filteredPlayers ?? []).map((p) => p.id);
     if (ids.length === 0) return { payments: [], error: null };
     query = query.in("player_id", ids);
   }

@@ -100,6 +100,7 @@ export interface PlayerRow extends Player {
 export interface PaymentHistoryFilters {
   joueurId?: string;
   categorie?: number;
+  entraineurId?: string;
   mois?: number;
   annee?: number;
   datePaiement?: string;
@@ -147,6 +148,7 @@ export interface TenuDashboardFilters {
 export interface TenuPaymentHistoryFilters {
   joueurId?: string;
   categorie?: number;
+  entraineurId?: string;
   datePaiement?: string;
   numeroRecu?: string;
 }

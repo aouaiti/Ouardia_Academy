@@ -35,6 +35,7 @@ export default async function TenuPage({ searchParams }: PageProps) {
   const historyFilters: TenuPaymentHistoryFilters = {
     joueurId: params.joueur,
     categorie: params.categorie ? Number(params.categorie) : undefined,
+    entraineurId: params.entraineur,
     datePaiement: params.datePaiement,
     numeroRecu: params.numeroRecu,
   };

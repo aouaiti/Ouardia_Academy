@@ -25,6 +25,7 @@ export default async function PaiementPage({ searchParams }: PageProps) {
   const historyFilters: PaymentHistoryFilters = {
     joueurId: params.joueur,
     categorie: params.categorie ? Number(params.categorie) : undefined,
+    entraineurId: params.entraineur,
     mois: params.mois ? Number(params.mois) : undefined,
     annee: params.annee ? Number(params.annee) : undefined,
     datePaiement: params.datePaiement,
@@ -32,8 +33,9 @@ export default async function PaiementPage({ searchParams }: PageProps) {
   };
 
   const supabase = await createClient();
-  const [{ data: players }, { payments }] = await Promise.all([
+  const [{ data: players }, { data: trainers }, { payments }] = await Promise.all([
     supabase.from("players").select("*").eq("statut", "actif").order("nom"),
+    supabase.from("trainers").select("id, nom, prenom").eq("actif", true).order("nom"),
     fetchPaymentHistory(historyFilters),
   ]);
 
@@ -41,6 +43,7 @@ export default async function PaiementPage({ searchParams }: PageProps) {
     <AuthenticatedLayout>
       <PaymentClient
         players={players ?? []}
+        trainers={trainers ?? []}
         existingPayments={(payments ?? []) as never}
         historyFilters={historyFilters}
         role={session.profile.role}

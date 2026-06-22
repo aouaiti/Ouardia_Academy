@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { TenuDashboardFilters, TenuPlayerRow, TenuStats } from "@/lib/types";
 import { formatDate, formatMontant } from "@/lib/format";
-import { exportTenuDashboardPDF } from "@/lib/pdf";
+import { exportTenuDashboardPDF, exportTenuDailyReportPDF } from "@/lib/pdf";
 import { StatCard, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { hasPermission } from "@/lib/permissions";
+import type { UserRole } from "@/lib/types";
 import { FileDown } from "lucide-react";
 
 interface Props {
@@ -26,6 +28,8 @@ interface Props {
   }[];
   todayTotal: number;
   todayDate: string;
+  appName: string;
+  role: UserRole;
 }
 
 export function TenuDashboardTab({
@@ -36,10 +40,13 @@ export function TenuDashboardTab({
   todayPayments,
   todayTotal,
   todayDate,
+  appName,
+  role,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [filters, setFilters] = useState<TenuDashboardFilters>(defaultFilters);
+  const canExport = hasPermission(role, "exportReports");
 
   function applyFilters(newFilters: TenuDashboardFilters) {
     setFilters(newFilters);
@@ -76,7 +83,18 @@ export function TenuDashboardTab({
       </div>
 
       <Card className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold">Encaissements tenu du jour — {formatDate(todayDate)}</h3>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-semibold">Encaissements tenu du jour — {formatDate(todayDate)}</h3>
+          {canExport && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportTenuDailyReportPDF(todayPayments, todayTotal, formatDate(todayDate), appName)}
+            >
+              <FileDown className="h-4 w-4" /> PDF
+            </Button>
+          )}
+        </div>
         <p className="mb-3 text-sm text-muted">
           {todayPayments.length} paiement(s) · Total : <strong>{formatMontant(todayTotal)}</strong>
         </p>

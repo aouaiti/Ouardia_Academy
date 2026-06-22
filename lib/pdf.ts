@@ -265,10 +265,11 @@ export function exportAuditPDF(entries: AuditLogEntry[], filters: AuditLogFilter
   doc.save(`journal-audit-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-function paymentFilterDescription(filters: PaymentHistoryFilters, playerName?: string): string[] {
+function paymentFilterDescription(filters: PaymentHistoryFilters, playerName?: string, trainerName?: string): string[] {
   const lines: string[] = [];
   if (playerName) lines.push(`Joueur : ${playerName}`);
   if (filters.categorie) lines.push(`Catégorie : ${filters.categorie}`);
+  if (trainerName) lines.push(`Entraîneur : ${trainerName}`);
   if (filters.mois) lines.push(`Mois : ${moisLabel(filters.mois)}`);
   if (filters.annee) lines.push(`Année : ${filters.annee}`);
   if (filters.datePaiement) lines.push(`Date paiement : ${filters.datePaiement}`);
@@ -279,10 +280,11 @@ function paymentFilterDescription(filters: PaymentHistoryFilters, playerName?: s
 export function exportPaymentHistoryPDF(
   payments: (Payment & { players?: { nom: string; prenom: string } | null })[],
   filters: PaymentHistoryFilters,
-  playerName?: string
+  playerName?: string,
+  trainerName?: string
 ) {
   const doc = new jsPDF();
-  const desc = paymentFilterDescription(filters, playerName);
+  const desc = paymentFilterDescription(filters, playerName, trainerName);
   doc.setFontSize(16);
   doc.text("Historique des paiements", 14, 20);
   doc.setFontSize(10);
@@ -347,6 +349,45 @@ export function exportDailyReportPDF(
   });
 
   doc.save(`rapport-journalier-${dateLabel.replace(/\//g, "-")}.pdf`);
+}
+
+interface TodayTenuPayment {
+  montant: number;
+  date_paiement: string;
+  numero_recu: string;
+  players?: { nom: string; prenom: string } | null;
+}
+
+export function exportTenuDailyReportPDF(
+  payments: TodayTenuPayment[],
+  total: number,
+  dateLabel: string,
+  appName = "Académie de Football"
+) {
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Encaissements tenu du jour", 14, 20);
+  doc.setFontSize(11);
+  doc.text(appName, 14, 28);
+  doc.setFontSize(10);
+  doc.text(`Date : ${dateLabel}`, 14, 36);
+  doc.text(`Nombre de paiements : ${payments.length}`, 14, 42);
+  doc.text(`Total encaissé : ${formatMontant(total)}`, 14, 48);
+
+  autoTable(doc, {
+    startY: 56,
+    head: [["Joueur", "Montant", "Date et heure", "N° reçu"]],
+    body: payments.length === 0
+      ? [["—", "—", "Aucun paiement tenu aujourd'hui", "—"]]
+      : payments.map((p) => [
+          p.players ? `${p.players.prenom} ${p.players.nom}` : "—",
+          formatMontant(Number(p.montant)),
+          formatDateTime(p.date_paiement),
+          p.numero_recu,
+        ]),
+  });
+
+  doc.save(`encaissements-tenu-${dateLabel.replace(/\//g, "-")}.pdf`);
 }
 
 interface TenuReceiptData {
@@ -430,12 +471,14 @@ export function exportTenuDashboardPDF(rows: TenuPlayerRow[], stats: TenuStats) 
 export function exportTenuPaymentHistoryPDF(
   payments: (TenuPayment & { players?: { nom: string; prenom: string } | null })[],
   filters: TenuPaymentHistoryFilters,
-  playerName?: string
+  playerName?: string,
+  trainerName?: string
 ) {
   const doc = new jsPDF();
   const lines: string[] = [];
   if (playerName) lines.push(`Joueur : ${playerName}`);
   if (filters.categorie) lines.push(`Catégorie : ${filters.categorie}`);
+  if (trainerName) lines.push(`Entraîneur : ${trainerName}`);
   if (filters.datePaiement) lines.push(`Date : ${filters.datePaiement}`);
   if (filters.numeroRecu) lines.push(`N° reçu : ${filters.numeroRecu}`);
   if (!lines.length) lines.push("Tous les paiements tenu");
