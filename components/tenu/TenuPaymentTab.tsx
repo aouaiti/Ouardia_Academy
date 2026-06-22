@@ -42,6 +42,7 @@ export function TenuPaymentTab({
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
   const [categorie, setCategorie] = useState<number | "">("");
+  const [entraineurId, setEntraineurId] = useState("");
   const [search, setSearch] = useState("");
   const [montant, setMontant] = useState("");
   const [error, setError] = useState("");
@@ -68,10 +69,11 @@ export function TenuPaymentTab({
 
   const filteredPlayers = useMemo(() => players.filter((p) => {
     if (categorie && p.annee_naissance !== categorie) return false;
+    if (entraineurId && p.entraineur_id !== entraineurId) return false;
     const q = search.toLowerCase().trim();
     if (q && !`${p.prenom} ${p.nom}`.toLowerCase().includes(q)) return false;
     return true;
-  }), [players, categorie, search]);
+  }), [players, categorie, entraineurId, search]);
 
   const histPlayers = useMemo(() => {
     let list = players;
@@ -169,6 +171,29 @@ export function TenuPaymentTab({
                   <option value="">Toutes les catégories</option>
                   {categories.map((c) => (
                     <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Entraîneur</label>
+                <select
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={entraineurId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setEntraineurId(value);
+                    if (value && playerId) {
+                      const p = players.find((pl) => pl.id === playerId);
+                      if (p && p.entraineur_id !== value) {
+                        setPlayerId("");
+                        setMontant("");
+                      }
+                    }
+                  }}
+                >
+                  <option value="">Tous les entraîneurs</option>
+                  {trainers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
                   ))}
                 </select>
               </div>
