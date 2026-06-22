@@ -57,10 +57,8 @@ export function TenuDashboardTab({
     if (newFilters.joueurId) params.set("joueur", newFilters.joueurId);
     if (newFilters.entraineurId) params.set("entraineur", newFilters.entraineurId);
     if (newFilters.datePaiement) params.set("datePaiement", newFilters.datePaiement);
-    startTransition(() => router.push(`/tenu?${params.toString()}`));
+    startTransition(() => router.push(`/tenu?${params.toString()}`, { scroll: false }));
   }
-
-  const unpaidRows = rows.filter((r) => r.reste > 0).sort((a, b) => b.reste - a.reste);
 
   return (
     <>
@@ -172,34 +170,6 @@ export function TenuDashboardTab({
             Réinitialiser
           </Button>
         </div>
-      </Card>
-
-      <Card className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold">Soldes restants</h3>
-        {unpaidRows.length === 0 ? (
-          <p className="text-sm text-muted">Toutes les tenus sont payées pour les joueurs filtrés.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted">Joueur</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted">Payé</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted">Reste</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unpaidRows.slice(0, 15).map((r) => (
-                  <tr key={r.id} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2">{r.prenom} {r.nom}</td>
-                    <td className="px-3 py-2">{formatMontant(r.totalPaye)}</td>
-                    <td className="px-3 py-2 font-medium text-danger">{formatMontant(r.reste)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Card>
 
       <Card>

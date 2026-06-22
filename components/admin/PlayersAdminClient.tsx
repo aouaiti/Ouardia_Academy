@@ -9,8 +9,10 @@ import { Card } from "@/components/ui/Card";
 import { PlayerAutocomplete } from "@/components/ui/PlayerAutocomplete";
 import { TrainerAutocomplete } from "@/components/ui/TrainerAutocomplete";
 import { formatMontant, moisLabel, moisOptions, anneeOptions } from "@/lib/format";
-import type { Player, Trainer } from "@/lib/types";
-import { UserPlus, Loader2, Pencil, Download, Upload, Trash2 } from "lucide-react";
+import { exportPlayersPDF } from "@/lib/pdf";
+import type { Player, Trainer, UserRole } from "@/lib/types";
+import { hasPermission } from "@/lib/permissions";
+import { UserPlus, Loader2, Pencil, Download, Upload, Trash2, FileDown } from "lucide-react";
 
 interface Props {
   players: (Player & { trainers: Trainer | null })[];
@@ -18,9 +20,10 @@ interface Props {
   categories: number[];
   canManage: boolean;
   canAdd: boolean;
+  role: UserRole;
 }
 
-export function PlayersAdminClient({ players, trainers, categories, canManage, canAdd }: Props) {
+export function PlayersAdminClient({ players, trainers, categories, canManage, canAdd, role }: Props) {
   const router = useRouter();
   const editFormRef = useRef<HTMLDivElement>(null);
   const now = new Date();
@@ -98,6 +101,23 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
     setFilterYear("");
     setSortOrder("asc");
   }
+
+  function handleExportPdf() {
+    const selectedPlayer = filterPlayerId ? players.find((p) => p.id === filterPlayerId) : undefined;
+    const selectedTrainer = filterTrainerId ? trainers.find((t) => t.id === filterTrainerId) : undefined;
+    exportPlayersPDF(filteredPlayers, {
+      playerLabel: selectedPlayer
+        ? `${selectedPlayer.prenom} ${selectedPlayer.nom}`
+        : filterPlayerSearch.trim() || undefined,
+      trainerLabel: selectedTrainer
+        ? `${selectedTrainer.prenom} ${selectedTrainer.nom}`
+        : filterTrainerSearch.trim() || undefined,
+      year: filterYear || undefined,
+      sortOrder,
+    });
+  }
+
+  const canExport = hasPermission(role, "exportReports");
 
   function handleCreate() {
     setError("");
@@ -465,9 +485,16 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
           <p className="text-sm text-muted">
             {filteredPlayers.length} joueur{filteredPlayers.length !== 1 ? "s" : ""} affiché{filteredPlayers.length !== 1 ? "s" : ""}
           </p>
-          <Button variant="ghost" size="sm" onClick={resetFilters}>
-            Réinitialiser les filtres
-          </Button>
+          <div className="flex gap-2">
+            {canExport && (
+              <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={filteredPlayers.length === 0}>
+                <FileDown className="h-4 w-4" /> PDF
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              Réinitialiser les filtres
+            </Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

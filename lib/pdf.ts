@@ -505,3 +505,50 @@ export function exportTenuPaymentHistoryPDF(
 
   doc.save(`historique-tenu-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+export interface PlayersExportFilters {
+  playerLabel?: string;
+  trainerLabel?: string;
+  year?: number;
+  sortOrder?: "asc" | "desc";
+}
+
+export function exportPlayersPDF(
+  players: {
+    prenom: string;
+    nom: string;
+    annee_naissance: number;
+    telephone: string | null;
+    trainers?: { prenom: string; nom: string } | null;
+  }[],
+  filters: PlayersExportFilters
+) {
+  const doc = new jsPDF();
+  const desc: string[] = [];
+  if (filters.playerLabel) desc.push(`Joueur : ${filters.playerLabel}`);
+  if (filters.trainerLabel) desc.push(`Entraîneur : ${filters.trainerLabel}`);
+  if (filters.year) desc.push(`Année : ${filters.year}`);
+  if (filters.sortOrder) desc.push(`Tri : ${filters.sortOrder === "asc" ? "A → Z" : "Z → A"}`);
+  if (!desc.length) desc.push("Tous les joueurs");
+
+  doc.setFontSize(16);
+  doc.text("Liste des joueurs", 14, 20);
+  doc.setFontSize(10);
+  desc.forEach((line, i) => doc.text(line, 14, 30 + i * 6));
+
+  const startY = 30 + desc.length * 6 + 6;
+  doc.text(`${players.length} joueur(s)`, 14, startY);
+
+  autoTable(doc, {
+    startY: startY + 8,
+    head: [["Joueur", "Catégorie", "Entraîneur", "Téléphone"]],
+    body: players.map((p) => [
+      `${p.prenom} ${p.nom}`,
+      String(p.annee_naissance),
+      p.trainers ? `${p.trainers.prenom} ${p.trainers.nom}` : "—",
+      p.telephone ?? "—",
+    ]),
+  });
+
+  doc.save(`joueurs-${new Date().toISOString().slice(0, 10)}.pdf`);
+}

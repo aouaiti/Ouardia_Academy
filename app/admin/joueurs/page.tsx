@@ -31,6 +31,7 @@ export default async function JoueursPage() {
         categories={uniqueCategories}
         canManage={canManage}
         canAdd={canAdd}
+        role={session.profile.role}
       />
     </AuthenticatedLayout>
   );

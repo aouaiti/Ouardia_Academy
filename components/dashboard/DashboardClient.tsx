@@ -87,17 +87,12 @@ export function DashboardClient({
     if (newFilters.joueurId) params.set("joueur", newFilters.joueurId);
     if (newFilters.entraineurId) params.set("entraineur", newFilters.entraineurId);
     if (newFilters.datePaiement) params.set("datePaiement", newFilters.datePaiement);
-    startTransition(() => router.push(`/dashboard?${params.toString()}`));
+    startTransition(() => router.push(`/dashboard?${params.toString()}`, { scroll: false }));
   }
 
   const maxMonthly = useMemo(
     () => Math.max(...yearStats.monthly.map((m) => Math.max(m.montant, m.attendu)), 1),
     [yearStats.monthly]
-  );
-
-  const debtRows = useMemo(
-    () => [...rows].filter((r) => r.financials.dette > 0).sort((a, b) => b.financials.dette - a.financials.dette),
-    [rows]
   );
 
   return (
@@ -107,9 +102,6 @@ export function DashboardClient({
         description={`Suivi des paiements — ${moisLabel(filters.mois)} ${filters.annee}`}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => exportDashboardPDF(rows, filters, stats, calcStart)}>
-              <FileDown className="h-4 w-4" /> PDF
-            </Button>
             <Button variant="outline" size="sm" onClick={() => exportDebtPDF(rows, filters, stats, calcStart)}>
               <FileDown className="h-4 w-4" /> PDF Dettes
             </Button>
@@ -236,42 +228,13 @@ export function DashboardClient({
         <p className="mt-2 text-xs text-muted">Barres foncées = encaissé, claires = attendu (selon date d&apos;inscription)</p>
       </div>
 
-      <Card className="mb-6">
-        <h3 className="mb-3 font-semibold">Dettes par joueur</h3>
-        {debtRows.length === 0 ? (
-          <p className="text-sm text-muted">Aucune dette sur la période sélectionnée.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted">Joueur</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted">Inscription</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted">Mois dus</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted">Total payé</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted">Total dû</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted">Dette</th>
-                </tr>
-              </thead>
-              <tbody>
-                {debtRows.map((r) => (
-                  <tr key={r.id} className="border-b border-border last:border-0 bg-red-50/50">
-                    <td className="px-3 py-2 font-medium">{r.prenom} {r.nom}</td>
-                    <td className="px-3 py-2">{moisLabel(r.mois_inscription)} {r.annee_inscription}</td>
-                    <td className="px-3 py-2 text-right">{r.financials.moisDus}</td>
-                    <td className="px-3 py-2 text-right">{formatMontant(r.financials.totalPaye)}</td>
-                    <td className="px-3 py-2 text-right">{formatMontant(r.financials.totalDu)}</td>
-                    <td className="px-3 py-2 text-right font-semibold text-danger">{formatMontant(r.financials.dette)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
       <div className="mb-4 rounded-xl border border-border bg-surface p-4">
-        <h3 className="mb-3 text-sm font-semibold">Filtres</h3>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold">Filtres</h3>
+          <Button variant="outline" size="sm" onClick={() => exportDashboardPDF(rows, filters, stats, calcStart)}>
+            <FileDown className="h-4 w-4" /> PDF
+          </Button>
+        </div>
         <div className="mb-3 flex flex-wrap gap-2">
           {QUICK_FILTERS.map((qf) => (
             <Button key={qf.label} variant="ghost" size="sm" onClick={() => applyFilters({ ...filters, ...qf.filtres })}>
