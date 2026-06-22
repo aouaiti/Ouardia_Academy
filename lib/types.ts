@@ -114,3 +114,57 @@ export interface AuditLogFilters {
   tableCible?: string;
   search?: string;
 }
+
+export const DEFAULT_TENU_PRIX = 60;
+
+export interface PlayerTenu {
+  id: string;
+  player_id: string;
+  prix: number;
+  created_at: string;
+}
+
+export interface TenuPayment {
+  id: string;
+  player_id: string;
+  montant: number;
+  date_paiement: string;
+  enregistre_par: string;
+  numero_recu: string;
+  created_at: string;
+  players?: Player;
+  app_users?: AppUser;
+}
+
+export interface TenuDashboardFilters {
+  statut?: "paye" | "non_paye" | "partiel";
+  anneeNaissance?: number;
+  joueurId?: string;
+  entraineurId?: string;
+  datePaiement?: string;
+}
+
+export interface TenuPaymentHistoryFilters {
+  joueurId?: string;
+  categorie?: number;
+  datePaiement?: string;
+  numeroRecu?: string;
+}
+
+export interface TenuPlayerRow extends Player {
+  prix: number;
+  totalPaye: number;
+  reste: number;
+  paye: boolean;
+  partiel: boolean;
+  trainers?: Trainer | null;
+}
+
+export interface TenuStats {
+  totalEncaisse: number;
+  totalAttendu: number;
+  nbPayes: number;
+  nbPartiels: number;
+  nbNonPayes: number;
+  totalReste: number;
+}

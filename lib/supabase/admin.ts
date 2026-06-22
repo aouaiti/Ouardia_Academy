@@ -15,3 +15,19 @@ export function hasAdminClient(): boolean {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return !!key && key.length > 20;
 }
+
+export const SERVICE_ROLE_MSG =
+  "La clé SUPABASE_SERVICE_ROLE_KEY est requise. Ajoutez-la dans .env.local (Supabase → Project Settings → API → service_role), puis redémarrez le serveur.";
+
+export function getAdminClientSafe():
+  | { admin: ReturnType<typeof createAdminClient> }
+  | { error: string } {
+  if (!hasAdminClient()) {
+    return { error: SERVICE_ROLE_MSG };
+  }
+  try {
+    return { admin: createAdminClient() };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Clé service role invalide" };
+  }
+}

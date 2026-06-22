@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAdminClientSafe } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -47,4 +48,39 @@ export async function deactivateTrainer(id: string) {
 
 export async function activateTrainer(id: string) {
   return updateTrainer(id, { actif: true });
+}
+
+export async function deleteTrainer(id: string) {
+  await requirePermission("manageTrainers");
+  const supabase = await createClient();
+
+  const { data: before } = await supabase.from("trainers").select("*").eq("id", id).single();
+  if (!before) return { error: "Entraîneur introuvable." };
+
+  const adminResult = getAdminClientSafe();
+  const db = "admin" in adminResult ? adminResult.admin : supabase;
+
+  const { error: detachError } = await db
+    .from("players")
+    .update({ entraineur_id: null })
+    .eq("entraineur_id", id);
+  if (detachError) return { error: detachError.message };
+
+  const { data: deleted, error } = await db.from("trainers").delete().eq("id", id).select("id");
+  if (error) return { error: error.message };
+  if (!deleted?.length) {
+    return {
+      error:
+        "Suppression refusée. Exécutez la migration 005 dans Supabase ou configurez SUPABASE_SERVICE_ROLE_KEY.",
+    };
+  }
+
+  await logAudit("suppression_entraineur", "trainers", id, {
+    avant: before,
+    joueurs_detaches: true,
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/entraineurs");
+  revalidatePath("/admin/joueurs");
+  return { success: true };
 }

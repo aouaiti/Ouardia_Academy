@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createTrainer, updateTrainer, deactivateTrainer, activateTrainer } from "@/app/actions/trainers";
+import { useRouter } from "next/navigation";
+import { createTrainer, updateTrainer, deactivateTrainer, activateTrainer, deleteTrainer } from "@/app/actions/trainers";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { Trainer } from "@/lib/types";
-import { UserPlus, Loader2, Pencil } from "lucide-react";
+import { UserPlus, Loader2, Pencil, Trash2 } from "lucide-react";
 
 export function TrainersAdminClient({
   trainers,
@@ -17,6 +18,7 @@ export function TrainersAdminClient({
   canManage: boolean;
   canAdd: boolean;
 }) {
+  const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [editTrainer, setEditTrainer] = useState<Trainer | null>(null);
   const [error, setError] = useState("");
@@ -55,6 +57,19 @@ export function TrainersAdminClient({
     startTransition(async () => {
       if (t.actif) await deactivateTrainer(t.id);
       else await activateTrainer(t.id);
+    });
+  }
+
+  function handleDeleteTrainer(t: Trainer) {
+    if (!confirm(`Supprimer définitivement l'entraîneur ${t.prenom} ${t.nom} ?`)) return;
+    setError("");
+    startTransition(async () => {
+      const result = await deleteTrainer(t.id);
+      if (result.error) setError(result.error);
+      else {
+        if (editTrainer?.id === t.id) setEditTrainer(null);
+        router.refresh();
+      }
     });
   }
 
@@ -133,6 +148,9 @@ export function TrainersAdminClient({
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleToggleActive(t)}>
                       {t.actif ? "Désactiver" : "Réactiver"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteTrainer(t)} title="Supprimer">
+                      <Trash2 className="h-3 w-3 text-danger" />
                     </Button>
                   </div>
                 </td>

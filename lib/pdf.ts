@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { AuditLogEntry, AuditLogFilters, DashboardFilters, Payment, PaymentHistoryFilters, PlayerRow } from "@/lib/types";
+import type { AuditLogEntry, AuditLogFilters, DashboardFilters, Payment, PaymentHistoryFilters, PlayerRow, TenuPayment, TenuPaymentHistoryFilters, TenuPlayerRow, TenuStats } from "@/lib/types";
 import { formatDateTime, formatMontant, moisLabel } from "@/lib/format";
 
 interface ExportStats {
@@ -213,6 +213,9 @@ export function generateReceiptPDF(data: ReceiptData) {
 const AUDIT_ACTION_LABELS: Record<string, string> = {
   creation_paiement: "Création paiement",
   suppression_paiement: "Suppression paiement",
+  creation_paiement_tenu: "Création paiement tenu",
+  suppression_paiement_tenu: "Suppression paiement tenu",
+  modif_prix_tenu: "Modification prix tenu",
   ajout_joueur: "Ajout joueur",
   modif_joueur: "Modification joueur",
   modif_tarif_joueur: "Modification tarif",
@@ -344,4 +347,118 @@ export function exportDailyReportPDF(
   });
 
   doc.save(`rapport-journalier-${dateLabel.replace(/\//g, "-")}.pdf`);
+}
+
+interface TenuReceiptData {
+  numeroRecu: string;
+  joueurNom: string;
+  joueurPrenom: string;
+  montant: number;
+  datePaiement: string;
+  prix: number;
+  totalPaye: number;
+  reste: number;
+  appName?: string;
+}
+
+export function generateTenuReceiptPDF(data: TenuReceiptData) {
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Reçu de paiement — Tenu", 105, 25, { align: "center" });
+  doc.setFontSize(11);
+  doc.text(data.appName ?? "Académie de Football", 105, 35, { align: "center" });
+  doc.setDrawColor(22, 101, 52);
+  doc.line(20, 42, 190, 42);
+
+  const lines = [
+    `N° reçu : ${data.numeroRecu}`,
+    `Joueur : ${data.joueurPrenom} ${data.joueurNom}`,
+    `Montant versé : ${formatMontant(data.montant)}`,
+    `Prix tenu : ${formatMontant(data.prix)}`,
+    `Total payé : ${formatMontant(data.totalPaye)}`,
+    `Reste à payer : ${formatMontant(data.reste)}`,
+    `Date : ${formatDateTime(data.datePaiement)}`,
+  ];
+  lines.forEach((line, i) => doc.text(line, 20, 55 + i * 10));
+
+  doc.setFontSize(9);
+  doc.text(
+    data.reste <= 0 ? "Tenu entièrement payée." : "Paiement partiel — conservez ce reçu.",
+    105,
+    130,
+    { align: "center" }
+  );
+  doc.save(`recu-tenu-${data.numeroRecu}.pdf`);
+}
+
+export function exportTenuDashboardPDF(rows: TenuPlayerRow[], stats: TenuStats) {
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Rapport tenu sportive", 14, 20);
+  doc.setFontSize(10);
+  doc.text(`Payés : ${stats.nbPayes}  |  Partiels : ${stats.nbPartiels}  |  Non payés : ${stats.nbNonPayes}`, 14, 30);
+  doc.text(
+    `Encaissé : ${formatMontant(stats.totalEncaisse)}  |  Attendu : ${formatMontant(stats.totalAttendu)}  |  Reste : ${formatMontant(stats.totalReste)}`,
+    14,
+    36
+  );
+
+  autoTable(doc, {
+    startY: 46,
+    head: [["Joueur", "Catégorie", "Prix", "Payé", "Reste", "Statut"]],
+    body: rows.map((r) => [
+      `${r.prenom} ${r.nom}`,
+      String(r.annee_naissance),
+      formatMontant(r.prix),
+      formatMontant(r.totalPaye),
+      formatMontant(r.reste),
+      r.paye ? "Payé" : r.partiel ? "Partiel" : "Non payé",
+    ]),
+    didParseCell(data) {
+      if (data.section === "body" && data.column.index === 5) {
+        const val = data.cell.raw as string;
+        if (val === "Payé") data.cell.styles.textColor = [22, 163, 74];
+        if (val === "Partiel") data.cell.styles.textColor = [217, 119, 6];
+        if (val === "Non payé") data.cell.styles.textColor = [220, 38, 38];
+      }
+    },
+  });
+
+  doc.save(`rapport-tenu-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+export function exportTenuPaymentHistoryPDF(
+  payments: (TenuPayment & { players?: { nom: string; prenom: string } | null })[],
+  filters: TenuPaymentHistoryFilters,
+  playerName?: string
+) {
+  const doc = new jsPDF();
+  const lines: string[] = [];
+  if (playerName) lines.push(`Joueur : ${playerName}`);
+  if (filters.categorie) lines.push(`Catégorie : ${filters.categorie}`);
+  if (filters.datePaiement) lines.push(`Date : ${filters.datePaiement}`);
+  if (filters.numeroRecu) lines.push(`N° reçu : ${filters.numeroRecu}`);
+  if (!lines.length) lines.push("Tous les paiements tenu");
+
+  doc.setFontSize(16);
+  doc.text("Historique paiements tenu", 14, 20);
+  doc.setFontSize(10);
+  lines.forEach((line, i) => doc.text(line, 14, 30 + i * 6));
+
+  const startY = 30 + lines.length * 6 + 6;
+  const total = payments.reduce((s, p) => s + Number(p.montant), 0);
+  doc.text(`Nombre : ${payments.length}  |  Total : ${formatMontant(total)}`, 14, startY);
+
+  autoTable(doc, {
+    startY: startY + 8,
+    head: [["Joueur", "Montant", "N° reçu", "Date"]],
+    body: payments.map((p) => [
+      p.players ? `${p.players.prenom} ${p.players.nom}` : "—",
+      formatMontant(Number(p.montant)),
+      p.numero_recu,
+      formatDateTime(p.date_paiement),
+    ]),
+  });
+
+  doc.save(`historique-tenu-${new Date().toISOString().slice(0, 10)}.pdf`);
 }

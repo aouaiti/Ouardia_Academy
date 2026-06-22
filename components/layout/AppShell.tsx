@@ -8,6 +8,7 @@ import type { PERMISSIONS } from "@/lib/permissions";
 import {
   LayoutDashboard,
   CreditCard,
+  Shirt,
   Users,
   Shield,
   UserCog,
@@ -28,6 +29,7 @@ const navItems: {
 }[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, permission: "viewDashboard" },
   { href: "/paiement", label: "Paiement", icon: CreditCard, permission: "recordPayment", optional: true },
+  { href: "/tenu", label: "Tenu", icon: Shirt, anyPermission: ["recordPayment", "viewDashboard"], optional: true },
   { href: "/utilisateurs", label: "Utilisateurs", icon: Users, permission: "manageUsers" },
   { href: "/admin/joueurs", label: "Joueurs", icon: UserCog, anyPermission: ["managePlayers", "addPlayers"] },
   { href: "/admin/entraineurs", label: "Entraîneurs", icon: Shield, anyPermission: ["manageTrainers", "addTrainers"] },

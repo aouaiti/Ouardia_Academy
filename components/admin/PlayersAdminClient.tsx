@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { createPlayer, updatePlayer, deactivatePlayer, activatePlayer, bulkReassignTrainer } from "@/app/actions/players";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createPlayer, updatePlayer, deactivatePlayer, activatePlayer, bulkReassignTrainer, importPlayersCsv, deletePlayer } from "@/app/actions/players";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PlayerAutocomplete } from "@/components/ui/PlayerAutocomplete";
+import { TrainerAutocomplete } from "@/components/ui/TrainerAutocomplete";
 import { formatMontant, moisLabel, moisOptions, anneeOptions } from "@/lib/format";
 import type { Player, Trainer } from "@/lib/types";
-import { UserPlus, Loader2, Pencil } from "lucide-react";
+import { UserPlus, Loader2, Pencil, Download, Upload, Trash2 } from "lucide-react";
 
 interface Props {
   players: (Player & { trainers: Trainer | null })[];
@@ -18,12 +21,24 @@ interface Props {
 }
 
 export function PlayersAdminClient({ players, trainers, categories, canManage, canAdd }: Props) {
+  const router = useRouter();
+  const editFormRef = useRef<HTMLDivElement>(null);
   const now = new Date();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [bulkCategory, setBulkCategory] = useState<number | "">("");
   const [bulkTrainer, setBulkTrainer] = useState("");
+  const [importTrainer, setImportTrainer] = useState("");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importMessage, setImportMessage] = useState("");
+  const [importError, setImportError] = useState("");
+  const [filterPlayerId, setFilterPlayerId] = useState("");
+  const [filterPlayerSearch, setFilterPlayerSearch] = useState("");
+  const [filterTrainerId, setFilterTrainerId] = useState("");
+  const [filterTrainerSearch, setFilterTrainerSearch] = useState("");
+  const [filterYear, setFilterYear] = useState<number | "">("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editPlayer, setEditPlayer] = useState<(Player & { trainers: Trainer | null }) | null>(null);
   const [form, setForm] = useState({
     nom: "", prenom: "", annee_naissance: now.getFullYear() - 10,
@@ -31,6 +46,58 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
     mois_inscription: now.getMonth() + 1,
     annee_inscription: now.getFullYear(),
   });
+
+  const birthYears = useMemo(
+    () => [...new Set(players.map((p) => p.annee_naissance))].sort((a, b) => b - a),
+    [players]
+  );
+
+  const filteredPlayers = useMemo(() => {
+    let list = [...players];
+
+    if (filterPlayerId) {
+      list = list.filter((p) => p.id === filterPlayerId);
+    } else if (filterPlayerSearch.trim()) {
+      const q = filterPlayerSearch.toLowerCase().trim();
+      list = list.filter((p) => `${p.prenom} ${p.nom}`.toLowerCase().includes(q));
+    }
+
+    if (filterTrainerId) {
+      list = list.filter((p) => p.entraineur_id === filterTrainerId);
+    } else if (filterTrainerSearch.trim()) {
+      const q = filterTrainerSearch.toLowerCase().trim();
+      list = list.filter((p) => {
+        if (!p.trainers) return false;
+        return `${p.trainers.prenom} ${p.trainers.nom}`.toLowerCase().includes(q);
+      });
+    }
+
+    if (filterYear) {
+      list = list.filter((p) => p.annee_naissance === filterYear);
+    }
+
+    list.sort((a, b) => {
+      const nameA = `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, "fr");
+      return sortOrder === "asc" ? nameA : -nameA;
+    });
+
+    return list;
+  }, [players, filterPlayerId, filterPlayerSearch, filterTrainerId, filterTrainerSearch, filterYear, sortOrder]);
+
+  useEffect(() => {
+    if (editPlayer && editFormRef.current) {
+      editFormRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [editPlayer]);
+
+  function resetFilters() {
+    setFilterPlayerId("");
+    setFilterPlayerSearch("");
+    setFilterTrainerId("");
+    setFilterTrainerSearch("");
+    setFilterYear("");
+    setSortOrder("asc");
+  }
 
   function handleCreate() {
     setError("");
@@ -95,6 +162,129 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
     });
   }
 
+  function parseCsvLine(line: string) {
+    // Support comma or semicolon as separator (depending on how the CSV is generated).
+    const delimiter = line.includes(";") && !line.includes(",") ? ";" : ",";
+    const cells: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === delimiter && !inQuotes) {
+        cells.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    cells.push(current.trim());
+    return cells;
+  }
+
+  function normalizeHeader(h: string) {
+    const s = h.trim().replace(/\uFEFF/g, ""); // Remove BOM if present
+    // Remove accents/diacritics and normalize to simple snake_case.
+    return s
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+  }
+
+  function parsePlayersCsv(content: string) {
+    const lines = content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length < 2) {
+      throw new Error("Le CSV est vide.");
+    }
+
+    const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+    const idxFirst = (names: string[]) => {
+      for (const n of names) {
+        const i = headers.indexOf(n);
+        if (i !== -1) return i;
+      }
+      return -1;
+    };
+
+    const prenomIdx = idxFirst(["prenom"]);
+    const nomIdx = idxFirst(["nom"]);
+    const anneeNaissanceIdx = idxFirst(["annee_naissance", "annee_de_naissance"]);
+    const missing: string[] = [];
+    if (prenomIdx === -1) missing.push("prenom");
+    if (nomIdx === -1) missing.push("nom");
+    if (anneeNaissanceIdx === -1) missing.push("annee_naissance");
+    if (missing.length > 0) throw new Error(`Colonnes manquantes: ${missing.join(", ")}`);
+
+    const telephoneIdx = idxFirst(["telephone", "tel"]);
+    const tarifIdx = idxFirst(["tarif_mensuel", "tarif", "tarifmensuel"]);
+    const moisIdx = idxFirst(["mois_inscription", "mois"]);
+    const anneeInscriptionIdx = idxFirst(["annee_inscription", "annee_inscr"]);
+
+    return lines.slice(1).map((line) => {
+      const cols = parseCsvLine(line);
+      return {
+        prenom: cols[prenomIdx] ?? "",
+        nom: cols[nomIdx] ?? "",
+        annee_naissance: Number(cols[anneeNaissanceIdx] ?? ""),
+        telephone: telephoneIdx !== -1 ? (cols[telephoneIdx] ?? "").trim() || undefined : undefined,
+        tarif_mensuel: tarifIdx !== -1 && cols[tarifIdx] ? Number(cols[tarifIdx]) : undefined,
+        mois_inscription: moisIdx !== -1 && cols[moisIdx] ? Number(cols[moisIdx]) : undefined,
+        annee_inscription: anneeInscriptionIdx !== -1 && cols[anneeInscriptionIdx] ? Number(cols[anneeInscriptionIdx]) : undefined,
+      };
+    });
+  }
+
+  function handleImportCsv() {
+    if (!importFile || !importTrainer) {
+      setImportError("Sélectionnez un fichier CSV et un entraîneur.");
+      setImportMessage("");
+      return;
+    }
+    setError("");
+    setImportError("");
+    setImportMessage("");
+    startTransition(async () => {
+      try {
+        const content = await importFile.text();
+        const rows = parsePlayersCsv(content);
+        const result = await importPlayersCsv(rows, importTrainer);
+        if (result.error) {
+          setImportError(result.error);
+          return;
+        }
+        setImportFile(null);
+        setImportMessage(`${result.count ?? 0} joueur(s) importé(s) avec succès.`);
+        router.refresh();
+      } catch (e) {
+        setImportError(e instanceof Error ? e.message : "Fichier CSV invalide. Vérifiez le modèle et les colonnes.");
+      }
+    });
+  }
+
+  function handleDeletePlayer(player: Player) {
+    if (!confirm(`Supprimer définitivement ${player.prenom} ${player.nom} ?`)) return;
+    setError("");
+    startTransition(async () => {
+      const result = await deletePlayer(player.id);
+      if (result.error) setError(result.error);
+      else {
+        if (editPlayer?.id === player.id) setEditPlayer(null);
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <>
       <PageHeader
@@ -108,6 +298,38 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
           ) : undefined
         }
       />
+
+      {canManage && (
+      <Card className="mb-6">
+        <h2 className="mb-3 font-semibold">Import CSV des joueurs</h2>
+        <p className="mb-3 text-xs text-muted">Téléchargez le modèle vide, remplissez-le, puis importez-le en choisissant l&apos;entraîneur.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href="/templates/players-import-template.csv" download>
+            <Button variant="outline" size="sm" type="button">
+              <Download className="h-4 w-4" /> Télécharger le modèle
+            </Button>
+          </a>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="cursor-pointer rounded-lg border border-border px-3 py-2 text-sm"
+            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+          />
+          <select className="rounded-lg border border-border px-3 py-2 text-sm" value={importTrainer} onChange={(e) => setImportTrainer(e.target.value)}>
+            <option value="">Entraîneur pour l&apos;import</option>
+            {trainers.filter((t) => t.actif).map((t) => (
+              <option key={t.id} value={t.id}>{t.prenom} {t.nom}</option>
+            ))}
+          </select>
+          <Button variant="primary" size="sm" disabled={!importFile || !importTrainer || pending} onClick={handleImportCsv}>
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Importer
+          </Button>
+        </div>
+        {importError && <p className="mt-2 text-sm text-danger">{importError}</p>}
+        {importMessage && <p className="mt-2 text-sm text-success">{importMessage}</p>}
+      </Card>
+      )}
 
       {canManage && (
       <Card className="mb-6">
@@ -161,6 +383,7 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
       )}
 
       {canManage && editPlayer && (
+        <div ref={editFormRef}>
         <Card className="mb-6 border-primary/30">
           <h2 className="mb-4 font-semibold">Modifier le joueur</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -190,9 +413,62 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
             <Button variant="ghost" onClick={() => setEditPlayer(null)}>Annuler</Button>
           </div>
         </Card>
+        </div>
       )}
 
       <Card>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <PlayerAutocomplete
+            players={players}
+            value={filterPlayerId}
+            onChange={setFilterPlayerId}
+            search={filterPlayerSearch}
+            onSearchChange={setFilterPlayerSearch}
+            label="Filtrer par joueur"
+            placeholder="Nom ou prénom…"
+          />
+          <TrainerAutocomplete
+            trainers={trainers}
+            value={filterTrainerId}
+            onChange={setFilterTrainerId}
+            search={filterTrainerSearch}
+            onSearchChange={setFilterTrainerSearch}
+            label="Filtrer par entraîneur"
+            placeholder="Nom ou prénom…"
+          />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Filtrer par année</label>
+            <select
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">Toutes</option>
+              {birthYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Tri alphabétique</label>
+            <select
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+            >
+              <option value="asc">A → Z</option>
+              <option value="desc">Z → A</option>
+            </select>
+          </div>
+        </div>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <p className="text-sm text-muted">
+            {filteredPlayers.length} joueur{filteredPlayers.length !== 1 ? "s" : ""} affiché{filteredPlayers.length !== 1 ? "s" : ""}
+          </p>
+          <Button variant="ghost" size="sm" onClick={resetFilters}>
+            Réinitialiser les filtres
+          </Button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-border">
@@ -207,7 +483,13 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
               </tr>
             </thead>
             <tbody>
-              {players.map((p) => (
+              {filteredPlayers.length === 0 ? (
+                <tr>
+                  <td colSpan={canManage ? 7 : 6} className="px-3 py-8 text-center text-muted">
+                    Aucun joueur ne correspond aux filtres.
+                  </td>
+                </tr>
+              ) : filteredPlayers.map((p) => (
                 <tr key={p.id} className="border-b border-border last:border-0">
                   <td className="px-3 py-2">{p.prenom} {p.nom}</td>
                   <td className="px-3 py-2">{p.annee_naissance}</td>
@@ -227,6 +509,9 @@ export function PlayersAdminClient({ players, trainers, categories, canManage, c
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleToggleStatus(p.id, p.statut)}>
                         {p.statut === "actif" ? "Désactiver" : "Réactiver"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeletePlayer(p)} title="Supprimer">
+                        <Trash2 className="h-3 w-3 text-danger" />
                       </Button>
                     </div>
                   </td>
